@@ -55,7 +55,7 @@ npm test
 npm run build
 ```
 
-CI uses `npm install` at this stage because a generated `package-lock.json` is not committed. After creating the lockfile using Node.js 24/npm, commit it and change CI to `npm ci` for reproducible installs.
+CI uses Node.js 24 with a committed `package-lock.json`, `npm ci`, ESLint, TypeScript validation, unit tests and production build. The lockfile was generated on Node.js 24 and should be updated when dependencies change.
 
 ## Architecture
 

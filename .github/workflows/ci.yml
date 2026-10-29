@@ -19,10 +19,9 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: "24"
-      # No lockfile is available at initial bootstrap. After generating and
-      # committing package-lock.json, replace this with "npm ci".
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
+          cache: "npm"
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
       - name: Lint
         run: npm run lint
       - name: Type check
