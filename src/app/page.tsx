@@ -37,7 +37,7 @@ export default async function Home({ searchParams }: HomeProps) {
               <span className="feature-visual__corner" aria-hidden="true">N° 01</span>
             </Link>
             <div className="feature-copy">
-              <span className="feature-category">{feature.category} / Editor's pick</span>
+              <span className="feature-category">{feature.category} / Editor&apos;s pick</span>
               <h3><Link href={`/stories/${feature.slug}`}>{feature.title}</Link></h3>
               <p>{feature.excerpt}</p>
               <div className="feature-bottom"><span>{feature.readingMinutes} min read</span><Link href={`/stories/${feature.slug}`} className="feature-button">Explore this story <span aria-hidden="true">↗</span></Link></div>
