@@ -50,6 +50,7 @@ a:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline
 .intro h1 em, .closing-note h2 em { font-weight: 400; color: #a35a51; }
 .intro > p { max-width: 550px; margin: 0 auto; color: #747d89; font-size: 15px; line-height: 1.8; }
 .intro-note { display: inline-flex; align-items: center; gap: 9px; margin-top: 27px; color: #777f89; font-size: 11px; }
+.feed-notice { padding: 16px 20px; border: 1px solid #d6bcc0; background: #fff8f6; color: #80554e; font-size: 12px; line-height: 1.7; margin-bottom: 32px; }
 .section-heading { display: flex; justify-content: space-between; gap: 24px; align-items: end; margin-bottom: 25px; }
 .section-overline { display: inline-block; text-transform: uppercase; color: #be685b; font-size: 10px; letter-spacing: .18em; font-weight: 800; }
 .section-heading h2 { font-family: Georgia, 'Times New Roman', serif; font-size: 35px; font-weight: 400; letter-spacing: -.045em; margin: 9px 0 0; }

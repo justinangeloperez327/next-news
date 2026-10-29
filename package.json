@@ -1,6 +1,6 @@
 {
   "name": "next-news",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test src/lib/news.test.ts"
+    "test": "node --experimental-strip-types --test src/lib/news.test.ts src/lib/live-news.test.ts"
   },
   "engines": {
     "node": ">=24 <25"

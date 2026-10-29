@@ -7,7 +7,7 @@ export function SiteHeader() {
       <div className="utility-bar">
         <div className="shell utility-bar__inner">
           <span>Independent reading. Better context.</span>
-          <span className="utility-bar__status"><span className="status-dot" /> Demo edition — no live feed</span>
+          <span className="utility-bar__status"><span className="status-dot" /> Preview edition · Provider connection optional</span>
         </div>
       </div>
       <div className="shell header-main">
@@ -20,7 +20,7 @@ export function SiteHeader() {
           <form action="/" method="get" role="search" className="search-form">
             <label htmlFor="header-search" className="sr-only">Search stories</label>
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg>
-            <input id="header-search" name="q" type="search" placeholder="Search stories" />
+            <input id="header-search" name="q" type="search" maxLength={100} placeholder="Search stories" />
           </form>
         </div>
       </div>

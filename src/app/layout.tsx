@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     default: "Next News — Stories with perspective",
     template: "%s | Next News",
   },
-  description: "An editorial news reader prototype with thoughtfully organized demo articles.",
+  description: "Browse source-attributed news headlines and editorial demonstrations in a calm reading experience.",
   robots: {
     index: false,
     follow: false,

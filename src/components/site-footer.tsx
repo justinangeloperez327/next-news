@@ -9,7 +9,7 @@ export function SiteFooter() {
           <p>A quieter place for better-informed reading.</p>
         </div>
         <div className="footer-aside">
-          <span>Prototype • Demonstration articles only</span>
+          <span>Prototype · Linked publisher headlines when configured</span>
           <span>© {new Date().getFullYear()} Next News</span>
         </div>
       </div>
