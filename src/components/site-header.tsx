@@ -16,7 +16,7 @@ export function SiteHeader() {
           <span className="brand-wordmark">next<span>news</span></span>
         </Link>
         <div className="header-right">
-          <a href="#stories" className="header-explore">Explore stories <span aria-hidden="true">↗</span></a>
+          <a href="/#stories" className="header-explore">Explore stories <span aria-hidden="true">↗</span></a>
           <form action="/" method="get" role="search" className="search-form">
             <label htmlFor="header-search" className="sr-only">Search stories</label>
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg>
