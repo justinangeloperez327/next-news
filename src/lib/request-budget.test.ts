@@ -14,7 +14,7 @@ test("config is optional in development and partially configured values fail clo
   assert.equal(budgetConfigurationState({ ...config, redisToken: undefined }), "invalid");
   assert.equal(budgetConfigurationState({ ...config, redisUrl: "http://localhost" }), "invalid");
   assert.equal(budgetConfigurationState(config), "enabled");
-  assert.deepEqual(budgetConfigFromEnv({ NEWS_DAILY_REQUEST_BUDGET: "55", NEWS_PER_SECOND_BUDGET: "5" } as NodeJS.ProcessEnv), {
+  assert.deepEqual(budgetConfigFromEnv({ NEWS_DAILY_REQUEST_BUDGET: "55", NEWS_PER_SECOND_BUDGET: "5" } as unknown as NodeJS.ProcessEnv), {
     redisUrl: undefined, redisToken: undefined, dailyLimit: 55, perSecondLimit: 5,
   });
   assert.equal(limitedInteger("-2", 90, 100), 90);
