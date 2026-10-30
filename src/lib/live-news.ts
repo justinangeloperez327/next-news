@@ -1,3 +1,4 @@
+import { MAX_FEED_PAGE } from "./feed-navigation.ts";
 import type { Category } from "./news.ts";
 
 export const FEED_REVALIDATE_SECONDS = 600;
@@ -17,11 +18,16 @@ export interface LiveArticle {
 
 export type LiveFeedResult =
   | { status: "demo" }
-  | { status: "unavailable" }
-  | { status: "live"; articles: LiveArticle[] };
+  | { status: "unavailable"; reason: "authorization" | "rate-limit" | "upstream" | "invalid-data" | "network" }
+  | { status: "live"; articles: LiveArticle[]; page: number; hasNextPage: boolean };
 
-type Filters = { category?: Category; query?: string };
-type Dependencies = { apiKey?: string; fetcher?: typeof fetch };
+export type SourcePolicy = {
+  allowedDomains?: readonly string[];
+  blockedDomains?: readonly string[];
+};
+
+type Filters = { category?: Category; query?: string; page?: number };
+type Dependencies = { apiKey?: string; fetcher?: typeof fetch; sourcePolicy?: SourcePolicy };
 
 const CATEGORY_ENDPOINTS: Record<Category, { kind: "top"; category: string } | { kind: "search"; query: string }> = {
   World: { kind: "top", category: "world" },
@@ -41,13 +47,14 @@ function normalizedText(value: unknown, maxLength: number): string {
   return value.replace(/\s+/g, " ").trim().slice(0, maxLength);
 }
 
-/** Remove known tracking parameters without modifying URLs used for navigation. */
+/** Remove known tracking parameters while retaining other publisher query parameters. */
 export function canonicalUrl(value: unknown): string | undefined {
   if (typeof value !== "string") return;
   try {
     const url = new URL(value);
     if (!["http:", "https:"].includes(url.protocol)) return;
     if (url.username || url.password) return;
+    if (!url.hostname.includes(".") || url.hostname.endsWith(".local")) return;
     url.hash = "";
     for (const name of [...url.searchParams.keys()]) {
       if (/^utm_/i.test(name) || ["fbclid", "gclid", "mc_cid", "mc_eid"].includes(name.toLowerCase())) {
@@ -61,11 +68,35 @@ export function canonicalUrl(value: unknown): string | undefined {
   }
 }
 
+export function parseSourceDomains(value: string | undefined): string[] {
+  return (value ?? "")
+    .split(",")
+    .map((domain) => domain.trim().toLowerCase().replace(/\.$/, ""))
+    .filter((domain) => /^(?:[a-z0-9-]+\.)+[a-z]{2,63}$/.test(domain));
+}
+
+function matchesDomain(hostname: string, domain: string): boolean {
+  return hostname === domain || hostname.endsWith("." + domain);
+}
+
+export function isSourceAllowed(url: string, policy: SourcePolicy = {}): boolean {
+  const hostname = new URL(url).hostname.toLowerCase().replace(/\.$/, "");
+  const allowed = policy.allowedDomains ?? [];
+  const blocked = policy.blockedDomains ?? [];
+  if (blocked.some((domain) => matchesDomain(hostname, domain))) return false;
+  if (allowed.length > 0 && !allowed.some((domain) => matchesDomain(hostname, domain))) return false;
+  return true;
+}
+
 /**
- * Keep only the fields required for a linked headline card.
- * Do not republish provider full text or publisher-owned photographs.
+ * Keep only titles, excerpts, publisher names, timestamps and outbound links.
+ * No publisher-owned images or full-text are copied into Next News.
  */
-export function normalizeArticles(value: unknown, category: LiveCategory): LiveArticle[] {
+export function normalizeArticles(
+  value: unknown,
+  category: LiveCategory,
+  policy: SourcePolicy = {},
+): LiveArticle[] {
   if (!isRecord(value) || !Array.isArray(value.articles)) {
     throw new Error("Invalid news feed payload");
   }
@@ -82,7 +113,9 @@ export function normalizeArticles(value: unknown, category: LiveCategory): LiveA
     const published = typeof item.publishedAt === "string" ? Date.parse(item.publishedAt) : NaN;
 
     if (!title || !url || !sourceName || !Number.isFinite(published)) continue;
-    if (published > Date.now() + 24 * 60 * 60 * 1000) continue;
+    // Small clock skew is acceptable, but articles dated in the future are not.
+    if (published > Date.now() + 10 * 60 * 1000) continue;
+    if (!isSourceAllowed(url, policy)) continue;
 
     const titleKey = title.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
     if (seenUrls.has(url) || seenTitles.has(titleKey)) continue;
@@ -103,10 +136,7 @@ export function normalizeArticles(value: unknown, category: LiveCategory): LiveA
   return articles.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
 }
 
-/**
- * All requests originate on the server. Secrets are transmitted through a header,
- * never a browser-visible URL or NEXT_PUBLIC_ variable.
- */
+/** Server-side GNews adapter. Never log, cache into public markup, or expose the API key. */
 export async function getLiveFeed(
   filters: Filters = {},
   dependencies: Dependencies = {},
@@ -114,6 +144,9 @@ export async function getLiveFeed(
   const apiKey = (dependencies.apiKey ?? process.env.GNEWS_API_KEY ?? "").trim();
   if (!apiKey) return { status: "demo" };
 
+  const page = Number.isSafeInteger(filters.page) && (filters.page ?? 0) >= 1 && (filters.page ?? 0) <= MAX_FEED_PAGE
+    ? filters.page!
+    : 1;
   const query = filters.query?.trim().slice(0, 100) ?? "";
   const category: LiveCategory = query ? "Top Stories" : filters.category ?? "Top Stories";
   const endpoint = filters.category && !query ? CATEGORY_ENDPOINTS[filters.category] : undefined;
@@ -122,6 +155,7 @@ export async function getLiveFeed(
   const url = new URL(useSearch ? "https://gnews.io/api/v4/search" : "https://gnews.io/api/v4/top-headlines");
   url.searchParams.set("lang", "en");
   url.searchParams.set("max", String(FEED_PAGE_SIZE));
+  url.searchParams.set("page", String(page));
   if (useSearch) {
     url.searchParams.set("q", query || (endpoint?.kind === "search" ? endpoint.query : ""));
     url.searchParams.set("sortby", "publishedAt");
@@ -136,13 +170,30 @@ export async function getLiveFeed(
       signal: AbortSignal.timeout(8_000),
     });
 
-    if (!response.ok) return { status: "unavailable" };
+    if (!response.ok) {
+      return {
+        status: "unavailable",
+        reason: [401, 403].includes(response.status) ? "authorization" : response.status === 429 ? "rate-limit" : "upstream",
+      };
+    }
 
     const payload: unknown = await response.json();
-    return { status: "live", articles: normalizeArticles(payload, category) };
+    if (!isRecord(payload) || !Array.isArray(payload.articles)) {
+      return { status: "unavailable", reason: "invalid-data" };
+    }
+    const policy = dependencies.sourcePolicy ?? {
+      allowedDomains: parseSourceDomains(process.env.NEWS_ALLOWED_DOMAINS),
+      blockedDomains: parseSourceDomains(process.env.NEWS_BLOCKED_DOMAINS),
+    };
+    const articles = normalizeArticles(payload, category, policy);
+    const total = payload.totalArticles;
+    const validTotal = typeof total === "number" && Number.isSafeInteger(total) && total >= 0;
+    const hasNextPage = validTotal && articles.length > 0
+      && page < MAX_FEED_PAGE && page * FEED_PAGE_SIZE < Math.min(total, 1_000);
+
+    return { status: "live", articles, page, hasNextPage };
   } catch {
-    // Invalid API responses, timeouts, and upstream failures must never be shown
-    // as current news or expose credentials to visitors.
-    return { status: "unavailable" };
+    // Timeouts, invalid JSON and network failures should not appear as live headlines.
+    return { status: "unavailable", reason: "network" };
   }
 }

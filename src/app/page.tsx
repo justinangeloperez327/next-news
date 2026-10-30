@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { LiveArticleCard, formatPublishedAt } from "@/components/live-article-card";
 import { StoryCard } from "@/components/story-card";
+import { FeedPagination } from "@/components/feed-pagination";
+import { feedHref, parseFeedPage } from "@/lib/feed-navigation";
 import { getLiveFeed } from "@/lib/live-news";
 import { getStories, parseCategory } from "@/lib/news";
 
 type HomeProps = {
-  searchParams: Promise<{ category?: string | string[]; q?: string | string[] }>;
+  searchParams: Promise<{ category?: string | string[]; q?: string | string[]; page?: string | string[] }>;
 };
 
 function firstValue(value: string | string[] | undefined): string | undefined {
@@ -14,16 +16,18 @@ function firstValue(value: string | string[] | undefined): string | undefined {
 
 export default async function Home({ searchParams }: HomeProps) {
   const params = await searchParams;
-  const category = parseCategory(firstValue(params.category));
   const query = firstValue(params.q)?.trim().slice(0, 100) ?? "";
-  const isBrowsing = Boolean(category || query);
-  const feed = await getLiveFeed({ category, query });
+  const category = query ? undefined : parseCategory(firstValue(params.category));
+  const page = parseFeedPage(params.page);
+  const isBrowsing = Boolean(category || query || page > 1);
+  const feed = await getLiveFeed({ category, query, page });
   const live = feed.status === "live";
   const liveArticles = feed.status === "live" ? feed.articles : [];
   const featureLive = !isBrowsing ? liveArticles[0] : undefined;
   const visibleLive = featureLive ? liveArticles.slice(1) : liveArticles;
 
-  const stories = live ? [] : getStories({ category, query });
+  const demo = feed.status === "demo" || (feed.status === "unavailable" && page === 1);
+  const stories = demo ? getStories({ category, query }) : [];
   const featureDemo = !isBrowsing ? stories[0] : undefined;
   const visibleDemo = featureDemo ? stories.filter((story) => story.slug !== featureDemo.slug) : stories;
   const count = live ? visibleLive.length : visibleDemo.length;
@@ -43,7 +47,21 @@ export default async function Home({ searchParams }: HomeProps) {
       </section>
       {feed.status === "unavailable" && (
         <div className="shell feed-notice" role="status">
-          The news provider is unavailable. Showing original demonstration stories instead — not current headlines.
+          {page > 1 ? (
+            <>
+              Page {page} could not be loaded. Your provider plan may not support pagination, or the feed may be temporarily unavailable.{" "}
+              <Link href={feedHref({ category, query })}>Return to the first page</Link>.
+            </>
+          ) : (
+            <>
+              {feed.reason === "rate-limit"
+                ? "The provider rate limit has been reached."
+                : feed.reason === "authorization"
+                  ? "The provider rejected the configured credentials or this request."
+                  : "The news provider is temporarily unavailable."}{" "}
+              Showing original demonstration stories instead — not current headlines.
+            </>
+          )}
         </div>
       )}
       {featureLive && (
@@ -99,9 +117,12 @@ export default async function Home({ searchParams }: HomeProps) {
         ) : (
           <div className="empty-state">
             <h3>No stories found.</h3>
-            <p>{live ? "Try another topic or section; coverage depends on your provider subscription." : "Try another keyword or explore every section."}</p>
-            <Link href="/" className="text-link">Browse all stories <span aria-hidden="true">↗</span></Link>
+            <p>{page > 1 && !live ? "This page is unavailable. Return to page one to view headlines." : live ? "Try another topic or section. Coverage and source filters depend on your provider settings." : "Try another keyword or explore every section."}</p>
+            <Link href={feedHref({ category, query })} className="text-link">Back to first page <span aria-hidden="true">↗</span></Link>
           </div>
+        )}
+        {feed.status === "live" && (
+          <FeedPagination page={feed.page} hasNextPage={feed.hasNextPage} category={category} query={query} />
         )}
       </section>
       <section className="shell closing-note">

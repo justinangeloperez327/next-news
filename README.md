@@ -7,6 +7,8 @@ A responsive news-reader prototype built with Next.js App Router, TypeScript and
 - Source-attributed headlines linking directly to the original publisher
 - Optional GNews API provider, with server-side key handling and 10-minute fetch caching
 - Article validation, deduplication, sorting, and tracking-parameter removal
+- Server-rendered pagination (up to GNews's 1,000-article cap) with safe navigation and provider-error handling
+- Optional publisher-domain allow/block lists for editorial source curation
 - World, Technology, Business, Science, Climate and Culture categories
 - Global keyword search, responsive editorial layout and demo article pages
 - Visible demo mode if the key is absent, and visible fallback if upstream data is unavailable
@@ -43,8 +45,20 @@ The free GNews plan is for noncommercial development/testing and serves up to te
 - Climate: search for `climate`.
 - Culture: search for `culture OR arts`.
 - A typed keyword search runs globally, independently of the selected category.
+- Paging links retain the active search or category. On accounts where pagination is unavailable, later pages display a provider error and a link back to page one instead of fabricated content.
 
 The same presentation works when no API key is present, using the local demonstration catalog.
+
+### Source curation
+
+Optionally set `NEWS_ALLOWED_DOMAINS` and/or `NEWS_BLOCKED_DOMAINS` in the **server** environment as comma-separated publisher URL hostnames. A block always takes precedence; when an allow list is present, only those hostnames and their subdomains are shown. Example:
+
+```dotenv
+NEWS_ALLOWED_DOMAINS=reuters.com,apnews.com
+NEWS_BLOCKED_DOMAINS=example.invalid
+```
+
+Use bare domains without schemes or paths. Invalid entries are ignored. These lists are only technical curation controls, **not guarantees that a publisher or article is accurate**. Filtering occurs after each upstream page is retrieved; therefore pages may contain fewer than ten results. The API's reported `totalArticles` is not displayed as a curated result count. No additional provider requests are made to fill a filtered page.
 
 ## Validation
 
@@ -62,10 +76,12 @@ CI uses Node.js 24 with a committed `package-lock.json`, `npm ci`, ESLint, TypeS
 - `src/app/`: App Router pages, article route and styles
 - `src/components/`: navigation, publisher-linked headline cards, demo article cards and footer
 - `src/lib/live-news.ts`: server-side GNews adapter, strict normalization, caching and fallback status
-- `src/lib/live-news.test.ts`: mocked provider and normalization tests (no live API calls)
+- `src/lib/live-news.test.ts`: mocked provider, pagination and domain-policy tests (no live API calls)
+- `src/lib/feed-navigation.ts`: bounded page parsing and search/category-preserving links
+- `src/lib/feed-navigation.test.ts`: pagination validation tests
 - `src/lib/news.ts`: original labeled demo story catalog and filtering
 - `src/lib/news.test.ts`: demo content/filter tests
 
 ## Next steps
 
-Commit an npm lockfile; add operational monitoring, publisher policy/rights review, pagination and stronger editorial source-curation controls. This project is a reading UI, not a license to republish third-party reporting.
+Consider adding production monitoring, per-client rate limiting, provider quota metrics, source policy audits and an explicit publisher rights review before public release. This project is a reading UI, not a license to republish third-party reporting.
