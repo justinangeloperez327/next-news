@@ -156,21 +156,3 @@ test("country filter is transmitted only for supported codes and is never logged
   assert.equal((events[0] as { country: string }).country, "ph");
 });
 
-test("shared budget blocks provider calls before fetch and reports failure clearly", async () => {
-  let called = 0;
-  const fetcher = (async () => { called++; throw new Error("Should not fetch"); }) as typeof fetch;
-  for (const [decision, reason] of [
-    ["daily-limit", "quota"],
-    ["burst-limit", "throttled"],
-    ["unavailable", "limiter-unavailable"],
-  ] as const) {
-    const result = await getLiveFeed({}, {
-      apiKey: "key",
-      fetcher,
-      admit: async () => decision,
-      observe: () => {},
-    });
-    assert.deepEqual(result, { status: "unavailable", reason });
-  }
-  assert.equal(called, 0);
-});

@@ -1,5 +1,4 @@
 import { MAX_FEED_PAGE } from "./feed-navigation.ts";
-import { admitProviderRequest, type BudgetDecision } from "./request-budget.ts";
 import { logNewsEvent, type NewsEvent } from "./news-telemetry.ts";
 import { parseNewsCountry, type NewsCountry } from "./regions.ts";
 import type { Category } from "./news.ts";
@@ -21,7 +20,7 @@ export interface LiveArticle {
 
 export type LiveFeedResult =
   | { status: "demo" }
-  | { status: "unavailable"; reason: "authorization" | "quota" | "throttled" | "limiter-unavailable" | "upstream" | "invalid-data" | "network" }
+  | { status: "unavailable"; reason: "authorization" | "quota" | "throttled" | "upstream" | "invalid-data" | "network" }
   | { status: "live"; articles: LiveArticle[]; page: number; hasNextPage: boolean };
 
 export type SourcePolicy = {
@@ -34,7 +33,6 @@ type Dependencies = {
   apiKey?: string;
   fetcher?: typeof fetch;
   sourcePolicy?: SourcePolicy;
-  admit?: () => Promise<BudgetDecision>;
   observe?: (event: NewsEvent) => void;
 };
 
@@ -185,16 +183,6 @@ export async function getLiveFeed(
       page,
       ...(articleCount === undefined ? {} : { articleCount }),
     });
-
-  // Shared, atomic provider-request budget when Upstash Redis is configured.
-  // Admission happens on cache misses through the server cache wrapper.
-  const admission = await (dependencies.admit ?? admitProviderRequest)();
-  if (admission !== "allowed" && admission !== "disabled") {
-    const reason = admission === "daily-limit" ? "quota" :
-      admission === "burst-limit" ? "throttled" : "limiter-unavailable";
-    report(reason);
-    return { status: "unavailable", reason };
-  }
 
   try {
     const response = await (dependencies.fetcher ?? fetch)(url.toString(), {

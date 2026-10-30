@@ -1,4 +1,5 @@
 import type { LiveArticle } from "@/lib/live-news";
+import { SaveArticleButton } from "@/components/save-article-button";
 
 const categoryTone: Record<LiveArticle["category"], string> = {
   "Top Stories": "blue",
@@ -34,6 +35,7 @@ export function LiveArticleCard({ article, index }: { article: LiveArticle; inde
         <span className="illustration-line" aria-hidden="true" />
       </a>
       <div className="card-meta"><span>{article.sourceName}</span><span><time dateTime={article.publishedAt}>{publishedLabel}</time></span></div>
+      <SaveArticleButton article={article} />
       <h3><a href={article.url} target="_blank" rel="noopener noreferrer nofollow">{article.title}</a></h3>
       {article.description && <p>{article.description}</p>}
       <a className="text-link" href={article.url} target="_blank" rel="noopener noreferrer nofollow">

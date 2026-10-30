@@ -1,7 +1,7 @@
-/** Minimal structured server logs. Never include API keys, Redis tokens, search strings, or article URLs. */
+/** Minimal structured server logs. Never include API keys, search strings, or article URLs. */
 export type NewsEvent = {
   event: "provider_fetch";
-  result: "success" | "authorization" | "quota" | "throttled" | "upstream" | "invalid-data" | "network" | "limiter-unavailable";
+  result: "success" | "authorization" | "quota" | "throttled" | "upstream" | "invalid-data" | "network";
   elapsedMs: number;
   category: string;
   country: string;

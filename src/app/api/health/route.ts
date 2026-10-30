@@ -1,17 +1,10 @@
-import { budgetConfigurationState, budgetConfigFromEnv } from "../../../lib/request-budget.ts";
-
 export const dynamic = "force-dynamic";
 
-/**
- * Lightweight readiness/configuration probe. Does not call GNews or Redis,
- * expose tokens, perform provider requests, or mutate rate counters.
- */
+/** Configuration-only status. Does not call GNews or reveal provider credentials. */
 export function GET() {
-  const mode = process.env.GNEWS_API_KEY?.trim() ? "configured" : "demo";
-  const budget = budgetConfigurationState(budgetConfigFromEnv());
-  const status = budget === "invalid" ? "configuration-error" : "ok";
+  const feedMode = process.env.GNEWS_API_KEY?.trim() ? "configured" : "demo";
   return Response.json(
-    { status, feedMode: mode, sharedBudget: budget },
-    { status: status === "ok" ? 200 : 503, headers: { "Cache-Control": "no-store" } },
+    { status: "ok", feedMode, browserCache: "localStorage" },
+    { headers: { "Cache-Control": "no-store" } },
   );
 }

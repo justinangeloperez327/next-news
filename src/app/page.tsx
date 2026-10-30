@@ -6,6 +6,9 @@ import { feedHref, parseFeedPage } from "@/lib/feed-navigation";
 import { getCachedFeed } from "@/lib/cached-feed";
 import { NEWS_REGIONS, parseNewsCountry } from "@/lib/regions";
 import { getStories, parseCategory } from "@/lib/news";
+import { TopicPreferences } from "@/components/topic-preferences";
+import { BrowserFeedCache } from "@/components/browser-feed-cache";
+import { SaveArticleButton } from "@/components/save-article-button";
 
 type HomeProps = {
   searchParams: Promise<{ category?: string | string[]; q?: string | string[]; page?: string | string[]; country?: string | string[] }>;
@@ -60,9 +63,7 @@ export default async function Home({ searchParams }: HomeProps) {
                 ? "The daily news provider quota has been exhausted. It normally resets at 00:00 UTC."
                 : feed.reason === "throttled"
                   ? "The provider request rate has been limited. Try again later."
-                  : feed.reason === "limiter-unavailable"
-                    ? "The shared request-budget service is unavailable; external news requests are temporarily paused."
-                    : feed.reason === "authorization"
+                  : feed.reason === "authorization"
                       ? "The news provider rejected the configured credentials."
                       : "The news provider is temporarily unavailable."}{" "}
               Showing original demonstration stories instead — not current headlines.
@@ -70,6 +71,7 @@ export default async function Home({ searchParams }: HomeProps) {
           )}
         </div>
       )}
+      <BrowserFeedCache feed={feed} filters={{ category, query, page, country }} />
       {featureLive && (
         <section className="shell featured-section" aria-labelledby="featured-heading">
           <div className="section-heading"><div><span className="section-overline">From the news feed</span><h2 id="featured-heading">The featured headline</h2></div><span className="section-counter">01 / Publisher-linked</span></div>
@@ -83,6 +85,7 @@ export default async function Home({ searchParams }: HomeProps) {
               <span className="feature-category">{featureLive.sourceName} / <time dateTime={featureLive.publishedAt}>{formatPublishedAt(featureLive.publishedAt)}</time></span>
               <h3><a href={featureLive.url} target="_blank" rel="noopener noreferrer nofollow">{featureLive.title}</a></h3>
               {featureLive.description && <p>{featureLive.description}</p>}
+              <SaveArticleButton article={featureLive} />
               <div className="feature-bottom"><span>Original reporting by {featureLive.sourceName}</span><a href={featureLive.url} target="_blank" rel="noopener noreferrer nofollow" className="feature-button">Read at source <span aria-hidden="true">↗</span></a></div>
             </div>
           </div>
@@ -106,6 +109,7 @@ export default async function Home({ searchParams }: HomeProps) {
           </div>
         </section>
       )}
+      <TopicPreferences />
       <section className="shell stories-section" id="stories" aria-labelledby="stories-heading">
         <form action="/" method="get" className="region-filter" aria-label="Choose news country">
           {query ? <input type="hidden" name="q" value={query} /> : category ? <input type="hidden" name="category" value={category.toLowerCase()} /> : null}

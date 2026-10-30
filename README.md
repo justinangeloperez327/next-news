@@ -1,99 +1,70 @@
 # Next News
 
-A responsive news-reader prototype built with Next.js App Router, TypeScript and Tailwind CSS.
+Editorial news-reader prototype built with Next.js App Router, TypeScript, React 19, and Tailwind CSS 4.
 
 ## Features
 
-- Source-attributed headlines linking directly to the original publisher
-- Optional GNews API provider, with server-side key handling and 10-minute fetch caching
-- Article validation, deduplication, sorting, and tracking-parameter removal
-- Server-rendered pagination (up to GNews's 1,000-article cap) with safe navigation and provider-error handling
-- Optional publisher-domain allow/block lists for editorial source curation
-- World, Technology, Business, Science, Climate and Culture categories
-- Global keyword search, responsive editorial layout and demo article pages
-- Visible demo mode if the key is absent, and visible fallback if upstream data is unavailable
-- Regional editions for supported countries, with search/pagination preservation
-- Optional atomic Redis-based GNews daily/per-second request admission
-- Structured server logs without search terms, tokens or publisher URLs
-- Lightweight `GET /api/health` configuration/availability probe
-- Node.js 24 CI: lint, type checks, tests and production build
+- Optional GNews-backed headline feed (source, publication date, preview, original publisher link)
+- Category, keyword, country and page navigation
+- Publisher URL validation, title/URL deduplication, and optional source allow/block lists
+- **Local browser storage:** saved articles, preferred topic shortcuts, and recent feed snapshots
+- When upstream is unavailable, optionally show a clearly labeled local snapshot previously visited in the **same browser**
+- 10-minute server-side Next.js feed cache to avoid unnecessary upstream requests
+- Structured server-side provider logs and `GET /api/health`
+- Node.js 24, npm lockfile, lint, typecheck, unit tests, and production-build CI
 
-> **Not a live service until configured.** Without a key, the original evergreen demonstration stories are shown, clearly labeled. Provider publication availability depends on your subscription. The GNews Free plan is delayed by 12 hours and permits noncommercial development/testing only.
+This remains a prototype until a live GNews key is configured. Demo articles are clearly labeled as original examples. News cards link to the publisher; no full third-party articles or licensed photographs are stored.
 
-## Local development
+## Getting started
 
-Requires Node.js 24 and npm.
+Requires Node.js 24.
 
 ```bash
-npm install
+npm ci
 cp .env.example .env.local
-# Set GNEWS_API_KEY in .env.local to enable external news.
+# Set GNEWS_API_KEY in .env.local for external headlines
 npm run dev
 ```
 
-Open http://localhost:3000.
+Open http://localhost:3000. Without a key, demonstration content is displayed.
 
-## Provider configuration
+## Optional provider setup
 
-1. Obtain your own API key at https://gnews.io/.
-2. Configure the server-side `GNEWS_API_KEY` environment variable (in `.env.local` for development or your hosting platform's encrypted environment settings).
-3. Start/restart your application. If the key is missing, demo mode remains active. If a configured provider fails, the UI explicitly reports that fallback demo stories are being displayed.
+Create a key at https://gnews.io/ and configure `GNEWS_API_KEY` **on the server only**. GNews free access is designed for development/testing, with reduced capacity and delayed results. Ensure your plan permits your intended deployment.
 
-The key is sent to `gnews.io` in an `X-Api-Key` request header. It is not used in browser code or appended to URLs. Requests cache with `next.revalidate: 600` (10 minutes). Search results and category results have distinct cache keys. Upstream errors, rate limits, malformed data and network failures do not masquerade as current headlines.
-
-The free GNews plan is for noncommercial development/testing and serves up to ten articles per request, with a 12-hour delay. Commercial/published projects require an appropriate paid subscription and must respect the copyright and other rights of the original publishers. News cards show title, short description, publisher, publication date and a link to the publisher; full third-party texts and images are not copied into this application.
-
-### Category routing
-
-- World, Technology, Business, Science: GNews top-headlines categories.
-- Climate: search for `climate`.
-- Culture: search for `culture OR arts`.
-- A typed keyword search runs globally, independently of the selected category.
-- Paging links retain the active search or category. On accounts where pagination is unavailable, later pages display a provider error and a link back to page one instead of fabricated content.
-
-The same presentation works when no API key is present, using the local demonstration catalog.
-
-### Source curation
-
-Optionally set `NEWS_ALLOWED_DOMAINS` and/or `NEWS_BLOCKED_DOMAINS` in the **server** environment as comma-separated publisher URL hostnames. A block always takes precedence; when an allow list is present, only those hostnames and their subdomains are shown. Example:
+Optional publisher curation:
 
 ```dotenv
 NEWS_ALLOWED_DOMAINS=reuters.com,apnews.com
 NEWS_BLOCKED_DOMAINS=example.invalid
 ```
 
-Use bare domains without schemes or paths. Invalid entries are ignored. These lists are only technical curation controls, **not guarantees that a publisher or article is accurate**. Filtering occurs after each upstream page is retrieved; therefore pages may contain fewer than ten results. The API's reported `totalArticles` is not displayed as a curated result count. No additional provider requests are made to fill a filtered page.
+Use bare domain names, without schemes or paths. The allow and block lists filter results *after* retrieval. A source allowlist is editorial curation, not a verification guarantee.
 
-## Group 3: operational protection and monitoring
+## Browser-only storage
 
-The homepage uses a ten-minute Next.js server cache over the normalized feed parameters (category, query, page and country). Provider requests and quota admissions happen on **cache misses**, rather than every page view. Cached provider errors may remain until the ten-minute expiration. Existing `next.revalidate` fetch caching remains in place as a secondary cache layer.
+**No Redis, database, user accounts, or external cache service is required.**
 
-GNews imposes **daily** and **per-second** quotas. A provider `403` means quota exhausted (reset at 00:00 UTC), while `429` indicates a request burst; `401` means invalid credentials. No automatic retry is performed because repeated retries can waste quota. Provider errors are explicitly labeled; they never appear as current news.
+- `next-news:v1:saved`: up to 80 publisher-linked saved articles; title, preview, original URL, publisher, timestamp and category.
+- `next-news:v1:topics`: saved category preferences; links to the selected categories appear on the homepage.
+- `next-news:v1:feed:...`: up to 20 recent feed snapshots, each containing at most 20 linked headlines. Each snapshot is identified by category, normalized query, page and country.
 
-### Optional shared Redis quota guard
+Snapshots are normally considered fresh for **15 minutes** and may be displayed as a labeled older copy when the provider fails, for **up to 24 hours**. The UI never represents a browser snapshot as a live update. A successful live response updates the snapshot after hydration. Expired, malformed, or unsafe stored snapshots are ignored; write errors (private browsing, restricted storage or quota exhaustion) are handled without stopping the application.
 
-For production deployments with more than one server/instance, configure a **single shared** Upstash Redis database:
+These data remain **only in the visitor's current browser profile and device**. They are not synchronized, backed up, encrypted, or available to the server. Clearing browser data or changing devices will remove them. Never store API keys or confidential data in browser storage.
 
-```dotenv
-UPSTASH_REDIS_REST_URL=https://YOUR_DATABASE.upstash.io/
-UPSTASH_REDIS_REST_TOKEN=YOUR_SERVER_ONLY_TOKEN
-NEWS_DAILY_REQUEST_BUDGET=90
-NEWS_PER_SECOND_BUDGET=1
-```
+**Important distinction:** `localStorage` is a browser feature, not a server-wide rate limiter. It does not prevent server fetches, enforce GNews quotas across visitors, or replace server caching. The existing Next.js server cache and GNews HTTP fetch revalidation (10 minutes) remain; production traffic still needs appropriate provider quota controls, CDN/WAF protection and alerting.
 
-An atomic Redis Lua operation reserves a request against the UTC day and a one-second bucket. Defaults are conservative for the free GNews plan; select your own provider-plan-specific values before going live. Configure both Redis credentials together. The guard fails closed if Redis is partly configured, unreachable, or invalid. Without either value, local development uses no shared quota guard; this is **not a guarantee of safe production quota enforcement**. All workers using a single provider API key must share the Redis namespace/database. Quota counts are conservative **admission estimates**, not exact API billing counters. This protects the provider API quota rather than limiting individual visitors; a separate CDN/WAF may be necessary for abusive HTTP traffic.
+## Operational behavior
 
-### Monitoring
+- GNews is called from server-side code only. The API key is passed through a request header, not a URL.
+- Unauthorized, quota-exhausted, throttled, invalid-data, and network responses remain distinct in server logs and the UI.
+- The homepage uses a 10-minute cached provider response across category, query, page and country. Provider errors can remain cached until revalidation.
+- `GET /api/health` returns `{status:"ok",feedMode:"demo"|"configured",browserCache:"localStorage"}` and does not probe GNews or the visitor's browser.
+- Browser cache is only read after hydration. On an unavailable provider, the page can show *both* a labeled earlier browser snapshot and original demo articles. Neither is live news.
+- Regional editions select source countries where the GNews plan supports them, not necessarily article topics.
 
-`GET /api/health` returns a no-store JSON status, with 200 when settings are valid and 503 if the Redis configuration is malformed. It does **not** call GNews or Redis, so 200 means the application configuration is valid, not that the news provider is currently healthy.
-
-Feed fetch attempts produce structured JSON logs with result, elapsed time, category, country, page and validated article count. Search keywords, publisher URLs, and secret tokens are never included. Forward server logs to your hosting platform's log retention/alerting system and monitor `quota`, `throttled`, `limiter-unavailable`, and `upstream` outcomes.
-
-### Regional editions
-
-Choose Worldwide, US, UK, Philippines, Japan, India, Singapore, Australia or Canada. The country code is validated against a fixed list and forwarded using GNews's `country` query option; the selected edition stays active across pagination. Demo articles are not region-filtered. GNews regional searches select publishers by **source country**, not necessarily articles about the country.
-
-## Validation
+## Development checks
 
 ```bash
 npm run lint
@@ -102,24 +73,21 @@ npm test
 npm run build
 ```
 
-CI uses Node.js 24 with a committed `package-lock.json`, `npm ci`, ESLint, TypeScript validation, unit tests and production build. The lockfile was generated on Node.js 24 and should be updated when dependencies change.
+CI runs on Node.js 24 using `npm ci`. No deployment is triggered.
 
-## Architecture
+## Project layout
 
-- `src/app/`: App Router pages, article route and styles
-- `src/components/`: navigation, publisher-linked headline cards, demo article cards and footer
-- `src/lib/live-news.ts`: server-side GNews adapter, strict normalization, caching and fallback status
-- `src/lib/live-news.test.ts`: mocked provider, pagination and domain-policy tests (no live API calls)
-- `src/lib/feed-navigation.ts`: bounded page parsing and search/category-preserving links
-- `src/lib/feed-navigation.test.ts`: pagination validation tests
-- `src/lib/news.ts`: original labeled demo story catalog and filtering
-- `src/lib/news.test.ts`: demo content/filter tests
-- `src/lib/regions.ts`: validated regional editions
-- `src/lib/request-budget.ts`: optional atomic, shared provider quota guard
-- `src/lib/news-telemetry.ts`: safe structured provider event logging
-- `src/lib/cached-feed.ts`: ten-minute server-side feed result cache
-- `src/app/api/health/route.ts`: lightweight configuration readiness endpoint
+- `src/lib/live-news.ts`: server-side GNews adapter, validation and provider status
+- `src/lib/cached-feed.ts`: Next.js server response cache
+- `src/lib/browser-storage.ts`: pure, validated localStorage data/TTL/bookmark/preferences functions
+- `src/lib/browser-events.ts`: cross-tab and same-tab browser storage subscriptions
+- `src/components/browser-feed-cache.tsx`: stores received news and renders older snapshots on provider failures
+- `src/components/save-article-button.tsx`: saved article controls
+- `src/components/topic-preferences.tsx`: local topic shortcuts
+- `src/app/saved/page.tsx`: saved-article library
+- `src/app/api/health/route.ts`: configuration-only status
+- `src/lib/*.test.ts`: validation, filtering and storage tests
 
-## Next steps
+## Production considerations
 
-Consider adding CDN/WAF visitor-level rate limiting, external alerting, provider quota reconciliation, source policy audits and an explicit publisher rights review before public release. This project is a reading UI, not a license to republish third-party reporting.
+Before public release: confirm content-licensing terms, implement reliable provider quota enforcement and operational alerting if traffic requires them, ensure security headers and add automated end-to-end tests. Browser-only storage is a deliberate prototype decision.
