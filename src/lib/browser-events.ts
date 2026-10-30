@@ -26,3 +26,12 @@ export function useStoredText(key: string): string | null {
 export function notifyStorageChanged(): void {
   window.dispatchEvent(new Event(STORE_EVENT));
 }
+
+/** Distinguish server hydration from a ready browser without layout effects. */
+export function useBrowserReady(): boolean {
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+}

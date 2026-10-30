@@ -8,6 +8,8 @@ Editorial news-reader prototype built with Next.js App Router, TypeScript, React
 - Category, keyword, country and page navigation
 - Publisher URL validation, title/URL deduplication, and optional source allow/block lists
 - **Local browser storage:** saved articles, preferred topic shortcuts, and recent feed snapshots
+- **For You** discovery page assembled from previously loaded local snapshots — no additional provider API calls
+- Three text-size choices on original demo article pages; preference saved per browser
 - When upstream is unavailable, optionally show a clearly labeled local snapshot previously visited in the **same browser**
 - 10-minute server-side Next.js feed cache to avoid unnecessary upstream requests
 - Structured server-side provider logs and `GET /api/health`
@@ -41,12 +43,20 @@ NEWS_BLOCKED_DOMAINS=example.invalid
 
 Use bare domain names, without schemes or paths. The allow and block lists filter results *after* retrieval. A source allowlist is editorial curation, not a verification guarantee.
 
+## Group 4: discovery and comfortable reading
+
+The `/for-you` page uses only the browser's previously loaded news snapshots. Selecting topic preferences narrows the collection to previously seen matching article categories. No new remote news requests are made by this page. Results are visibly marked as cached and are not described as breaking or live news.
+
+Original demonstration articles offer Standard, Large and Extra-large text size. The selected size persists locally, does not require an account and does not alter third-party publisher websites. Your browser remains the only store for these preferences.
+
 ## Browser-only storage
 
 **No Redis, database, user accounts, or external cache service is required.**
 
 - `next-news:v1:saved`: up to 80 publisher-linked saved articles; title, preview, original URL, publisher, timestamp and category.
 - `next-news:v1:topics`: saved category preferences; links to the selected categories appear on the homepage.
+- `next-news:v1:reading-size`: demo-article font size preference.
+- `next-news:v1:feed-index`: local change marker used by the personalized discovery view.
 - `next-news:v1:feed:...`: up to 20 recent feed snapshots, each containing at most 20 linked headlines. Each snapshot is identified by category, normalized query, page and country.
 
 Snapshots are normally considered fresh for **15 minutes** and may be displayed as a labeled older copy when the provider fails, for **up to 24 hours**. The UI never represents a browser snapshot as a live update. A successful live response updates the snapshot after hydration. Expired, malformed, or unsafe stored snapshots are ignored; write errors (private browsing, restricted storage or quota exhaustion) are handled without stopping the application.
@@ -81,6 +91,9 @@ CI runs on Node.js 24 using `npm ci`. No deployment is triggered.
 - `src/lib/cached-feed.ts`: Next.js server response cache
 - `src/lib/browser-storage.ts`: pure, validated localStorage data/TTL/bookmark/preferences functions
 - `src/lib/browser-events.ts`: cross-tab and same-tab browser storage subscriptions
+- `src/lib/local-discovery.ts`: validated local headline discovery, deduplication and topic filtering
+- `src/components/for-you-list.tsx`: browser-only personalized collection
+- `src/components/reader-controls.tsx`: demo-article reading preferences
 - `src/components/browser-feed-cache.tsx`: stores received news and renders older snapshots on provider failures
 - `src/components/save-article-button.tsx`: saved article controls
 - `src/components/topic-preferences.tsx`: local topic shortcuts

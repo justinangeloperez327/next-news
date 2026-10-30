@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { STORIES, getStory } from "@/lib/news";
+import { ReaderControls } from "@/components/reader-controls";
 
 type StoryPageProps = { params: Promise<{ slug: string }> };
 
@@ -35,9 +36,9 @@ export default async function StoryPage({ params }: StoryPageProps) {
       </header>
       <div className={`article-visual art--${story.tone}`} aria-hidden="true"><span className="article-visual__label">NEXT / PERSPECTIVES</span><span className="article-visual__shape"/></div>
       <div className="article-content">
-        <aside className="article-aside"><span className="section-overline">About this edition</span><p>This is an original demonstration article. Live news ingestion is not connected.</p></aside>
-        <div className="article-prose">
-          {story.body.map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+        <aside className="article-aside"><span className="section-overline">About this edition</span><p>This is an original demonstration article, not a current news report.</p></aside>
+        <div>
+          <ReaderControls paragraphs={story.body} />
           <div className="article-end"><span>End of article</span><Link href="/">Back to all stories <span aria-hidden="true">↗</span></Link></div>
         </div>
       </div>

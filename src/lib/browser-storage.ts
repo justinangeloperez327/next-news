@@ -5,6 +5,7 @@ import type { NewsCountry } from "./regions.ts";
 
 export const SAVED_KEY = "next-news:v1:saved";
 export const TOPICS_KEY = "next-news:v1:topics";
+export const FEED_INDEX_KEY = "next-news:v1:feed-index";
 const FEED_PREFIX = "next-news:v1:feed:";
 export const FEED_CACHE_TTL_MS = 15 * 60 * 1000;
 export const FEED_FALLBACK_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -120,6 +121,9 @@ export function saveFeedSnapshot(
       // A failed cleanup must not block saving the current page.
     }
   }
+  // A small browser-local revision marker lets discovery pages update across tabs.
+  // If updating this marker fails, the cache itself is still usable.
+  writeJSON(storage, FEED_INDEX_KEY, { updatedAt: now });
   return true;
 }
 

@@ -9,17 +9,27 @@ import { useStoredText, notifyStorageChanged } from "@/lib/browser-events";
 import { LiveArticleCard } from "@/components/live-article-card";
 
 export function BrowserFeedCache({ feed, filters }: { feed: LiveFeedResult; filters: FeedIdentity }) {
-  const key = feedStorageKey(filters);
+  const { category, query, page, country } = filters;
+  const key = feedStorageKey({ category, query, page, country });
   const raw = useStoredText(key);
 
   useEffect(() => {
     if (feed.status !== "live") return;
     try {
-      if (saveFeedSnapshot(window.localStorage, filters, feed)) notifyStorageChanged();
+      const identity = { category, query, page, country };
+      const previous = readFeedSnapshot(window.localStorage, identity);
+      // Do not write again when a rerender is caused by our own storage event.
+      if (previous && !previous.isStale &&
+          previous.hasNextPage === feed.hasNextPage &&
+          previous.articles.length === feed.articles.length &&
+          previous.articles.every((article, i) =>
+            article.url === feed.articles[i].url &&
+            article.title === feed.articles[i].title)) return;
+      if (saveFeedSnapshot(window.localStorage, identity, feed)) notifyStorageChanged();
     } catch {
       // Storage can be disabled by browser policies.
     }
-  }, [feed, filters]);
+  }, [feed, category, query, page, country]);
 
   if (feed.status !== "unavailable" || !raw) return null;
   const storage = { getItem: () => raw, setItem: () => {}, removeItem: () => {} };

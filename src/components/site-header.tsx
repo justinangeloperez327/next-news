@@ -27,6 +27,7 @@ export function SiteHeader() {
       <nav className="section-nav" aria-label="News sections">
         <div className="shell section-nav__inner">
           <Link href="/">All stories</Link>
+          <Link href="/for-you">For You</Link>
           <Link href="/saved">Saved</Link>
           {CATEGORIES.map((category) => (
             <Link href={`/?category=${category.toLowerCase()}`} key={category}>{category}</Link>
