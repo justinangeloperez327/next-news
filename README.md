@@ -81,9 +81,11 @@ npm run lint
 npm run typecheck
 npm test
 npm run build
+npx playwright install chromium
+npm run test:e2e
 ```
 
-CI runs on Node.js 24 using `npm ci`. No deployment is triggered.
+CI runs on Node.js 24 using `npm ci`. A separate browser job installs Chromium and tests real navigation, `localStorage` persistence, saved-article removal and local discovery against the production server. No deployment is triggered.
 
 ## Project layout
 

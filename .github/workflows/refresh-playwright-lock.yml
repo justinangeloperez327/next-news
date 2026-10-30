@@ -1,0 +1,35 @@
+# One-time Node.js 24 lockfile update for browser testing.
+# Deleted after the lockfile has been committed.
+name: Refresh Playwright lockfile
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/refresh-playwright-lock.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+      - name: Update dependency lockfile
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Commit lockfile
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          if git diff --cached --quiet; then
+            echo "Lockfile already updated"
+          else
+            git commit -m "chore: lock Playwright browser-test dependencies on Node 24"
+            git push origin HEAD:main
+          fi

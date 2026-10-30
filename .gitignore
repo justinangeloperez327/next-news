@@ -11,3 +11,7 @@ coverage
 next-env.d.ts
 .DS_Store
 npm-debug.log*
+
+# Playwright browser test outputs
+playwright-report/
+test-results/
