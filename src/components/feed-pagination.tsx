@@ -1,18 +1,20 @@
 import Link from "next/link";
 import { feedHref } from "@/lib/feed-navigation";
 import type { Category } from "@/lib/news";
+import type { NewsCountry } from "@/lib/regions";
 
 type FeedPaginationProps = {
   page: number;
   hasNextPage: boolean;
   category?: Category;
   query?: string;
+  country?: NewsCountry;
 };
 
-export function FeedPagination({ page, hasNextPage, category, query }: FeedPaginationProps) {
+export function FeedPagination({ page, hasNextPage, category, query, country }: FeedPaginationProps) {
   if (page <= 1 && !hasNextPage) return null;
 
-  const filters = { category, query };
+  const filters = { category, query, country };
   return (
     <nav className="feed-pagination" aria-label="News feed pages">
       {page > 1 ? (

@@ -119,7 +119,7 @@ test("does not claim next page when provider lacks a total count", async () => {
 });
 
 test("provider failure returns explicit reasons, not fake live news", async () => {
-  for (const [status, reason] of [[401, "authorization"], [403, "authorization"], [429, "rate-limit"], [500, "upstream"]] as const) {
+  for (const [status, reason] of [[401, "authorization"], [403, "quota"], [429, "throttled"], [500, "upstream"]] as const) {
     const result = await getLiveFeed({}, {
       apiKey: "key",
       fetcher: (async () => new Response("error", { status })) as typeof fetch,
@@ -138,4 +138,39 @@ test("provider failure returns explicit reasons, not fake live news", async () =
     fetcher: (async () => { throw new Error("network unavailable"); }) as typeof fetch,
   });
   assert.deepEqual(timeout, { status: "unavailable", reason: "network" });
+});
+
+test("country filter is transmitted only for supported codes and is never logged as a query", async () => {
+  const urls: URL[] = [];
+  const events: unknown[] = [];
+  const fetcher = (async (input: URL | RequestInfo) => {
+    urls.push(new URL(String(input)));
+    return new Response(JSON.stringify({ totalArticles: 1, articles: [article()] }), { status: 200 });
+  }) as typeof fetch;
+  const observe = (event: import("./news-telemetry.ts").NewsEvent) => events.push(event);
+
+  await getLiveFeed({ category: "World", country: "ph" }, { apiKey: "key", fetcher, observe });
+  await getLiveFeed({ category: "World", country: "invalid" as "ph" }, { apiKey: "key", fetcher, observe });
+  assert.equal(urls[0].searchParams.get("country"), "ph");
+  assert.equal(urls[1].searchParams.get("country"), null);
+  assert.equal((events[0] as { country: string }).country, "ph");
+});
+
+test("shared budget blocks provider calls before fetch and reports failure clearly", async () => {
+  let called = 0;
+  const fetcher = (async () => { called++; throw new Error("Should not fetch"); }) as typeof fetch;
+  for (const [decision, reason] of [
+    ["daily-limit", "quota"],
+    ["burst-limit", "throttled"],
+    ["unavailable", "limiter-unavailable"],
+  ] as const) {
+    const result = await getLiveFeed({}, {
+      apiKey: "key",
+      fetcher,
+      admit: async () => decision,
+      observe: () => {},
+    });
+    assert.deepEqual(result, { status: "unavailable", reason });
+  }
+  assert.equal(called, 0);
 });

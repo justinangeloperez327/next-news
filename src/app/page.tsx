@@ -3,11 +3,12 @@ import { LiveArticleCard, formatPublishedAt } from "@/components/live-article-ca
 import { StoryCard } from "@/components/story-card";
 import { FeedPagination } from "@/components/feed-pagination";
 import { feedHref, parseFeedPage } from "@/lib/feed-navigation";
-import { getLiveFeed } from "@/lib/live-news";
+import { getCachedFeed } from "@/lib/cached-feed";
+import { NEWS_REGIONS, parseNewsCountry } from "@/lib/regions";
 import { getStories, parseCategory } from "@/lib/news";
 
 type HomeProps = {
-  searchParams: Promise<{ category?: string | string[]; q?: string | string[]; page?: string | string[] }>;
+  searchParams: Promise<{ category?: string | string[]; q?: string | string[]; page?: string | string[]; country?: string | string[] }>;
 };
 
 function firstValue(value: string | string[] | undefined): string | undefined {
@@ -19,8 +20,9 @@ export default async function Home({ searchParams }: HomeProps) {
   const query = firstValue(params.q)?.trim().slice(0, 100) ?? "";
   const category = query ? undefined : parseCategory(firstValue(params.category));
   const page = parseFeedPage(params.page);
+  const country = parseNewsCountry(params.country);
   const isBrowsing = Boolean(category || query || page > 1);
-  const feed = await getLiveFeed({ category, query, page });
+  const feed = await getCachedFeed(category, query, page, country);
   const live = feed.status === "live";
   const liveArticles = feed.status === "live" ? feed.articles : [];
   const featureLive = !isBrowsing ? liveArticles[0] : undefined;
@@ -50,15 +52,19 @@ export default async function Home({ searchParams }: HomeProps) {
           {page > 1 ? (
             <>
               Page {page} could not be loaded. Your provider plan may not support pagination, or the feed may be temporarily unavailable.{" "}
-              <Link href={feedHref({ category, query })}>Return to the first page</Link>.
+              <Link href={feedHref({ category, query, country })}>Return to the first page</Link>.
             </>
           ) : (
             <>
-              {feed.reason === "rate-limit"
-                ? "The provider rate limit has been reached."
-                : feed.reason === "authorization"
-                  ? "The provider rejected the configured credentials or this request."
-                  : "The news provider is temporarily unavailable."}{" "}
+              {feed.reason === "quota"
+                ? "The daily news provider quota has been exhausted. It normally resets at 00:00 UTC."
+                : feed.reason === "throttled"
+                  ? "The provider request rate has been limited. Try again later."
+                  : feed.reason === "limiter-unavailable"
+                    ? "The shared request-budget service is unavailable; external news requests are temporarily paused."
+                    : feed.reason === "authorization"
+                      ? "The news provider rejected the configured credentials."
+                      : "The news provider is temporarily unavailable."}{" "}
               Showing original demonstration stories instead — not current headlines.
             </>
           )}
@@ -101,6 +107,15 @@ export default async function Home({ searchParams }: HomeProps) {
         </section>
       )}
       <section className="shell stories-section" id="stories" aria-labelledby="stories-heading">
+        <form action="/" method="get" className="region-filter" aria-label="Choose news country">
+          {query ? <input type="hidden" name="q" value={query} /> : category ? <input type="hidden" name="category" value={category.toLowerCase()} /> : null}
+          <label htmlFor="country-selection">News edition</label>
+          <select id="country-selection" name="country" defaultValue={country}>
+            {NEWS_REGIONS.map(({ code, label }) => <option value={code} key={code || "worldwide"}>{label}</option>)}
+          </select>
+          <button type="submit">Apply</button>
+          {!live && <span className="region-filter__note">Edition filtering requires a connected news provider.</span>}
+        </form>
         <div className="section-heading">
           <div>
             <span className="section-overline">{live ? "From external publishers" : isBrowsing ? "Browse the collection" : "Thoughtful demo reads"}</span>
@@ -118,11 +133,11 @@ export default async function Home({ searchParams }: HomeProps) {
           <div className="empty-state">
             <h3>No stories found.</h3>
             <p>{page > 1 && !live ? "This page is unavailable. Return to page one to view headlines." : live ? "Try another topic or section. Coverage and source filters depend on your provider settings." : "Try another keyword or explore every section."}</p>
-            <Link href={feedHref({ category, query })} className="text-link">Back to first page <span aria-hidden="true">↗</span></Link>
+            <Link href={feedHref({ category, query, country })} className="text-link">Back to first page <span aria-hidden="true">↗</span></Link>
           </div>
         )}
         {feed.status === "live" && (
-          <FeedPagination page={feed.page} hasNextPage={feed.hasNextPage} category={category} query={query} />
+          <FeedPagination page={feed.page} hasNextPage={feed.hasNextPage} category={category} query={query} country={country} />
         )}
       </section>
       <section className="shell closing-note">

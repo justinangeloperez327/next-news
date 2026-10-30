@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test src/lib/news.test.ts src/lib/live-news.test.ts src/lib/feed-navigation.test.ts"
+    "test": "node --experimental-strip-types --test src/lib/news.test.ts src/lib/live-news.test.ts src/lib/feed-navigation.test.ts src/lib/regions.test.ts src/lib/request-budget.test.ts src/lib/news-telemetry.test.ts src/app/api/health/route.test.ts"
   },
   "engines": {
     "node": ">=24 <25"

@@ -1,4 +1,5 @@
 import type { Category } from "./news.ts";
+import type { NewsCountry } from "./regions.ts";
 
 export const MAX_FEED_PAGE = 100;
 
@@ -10,11 +11,12 @@ export function parseFeedPage(value: string | string[] | undefined): number {
 }
 
 /** Keep pagination links limited to the active filter, never a supplied URL. */
-export function feedHref(options: { category?: Category; query?: string; page?: number }): string {
+export function feedHref(options: { category?: Category; query?: string; page?: number; country?: NewsCountry }): string {
   const params = new URLSearchParams();
   const query = options.query?.trim().slice(0, 100);
   if (query) params.set("q", query);
   else if (options.category) params.set("category", options.category.toLowerCase());
+  if (options.country) params.set("country", options.country);
   if (options.page && options.page > 1 && options.page <= MAX_FEED_PAGE) {
     params.set("page", String(options.page));
   }

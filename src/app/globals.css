@@ -182,3 +182,11 @@ a:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline
 .feed-pagination a:hover { color: var(--accent); }
 .feed-pagination__counter { color: #7b8490; font-size: 11px; }
 .feed-notice a { color: #192538; font-weight: 700; text-decoration: underline; }
+
+.region-filter { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin:0 0 28px; font-size:12px; }
+.region-filter label { color:#565f6c; font-weight:700; }
+.region-filter select { min-width:160px; padding:10px 12px; border:1px solid #d9dde3; border-radius:0; background:#fff; color:#182131; font:inherit; }
+.region-filter button { padding:10px 16px; background:#192538; color:#fff; font:inherit; font-weight:700; cursor:pointer; border:0; }
+.region-filter button:hover { background:#a75349; }
+.region-filter__note { color:#77818d; font-size:11px; }
+@media (max-width:640px) { .region-filter select { flex:1; } .region-filter__note { width:100%; } }

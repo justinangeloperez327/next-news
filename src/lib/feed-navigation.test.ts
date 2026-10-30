@@ -15,4 +15,6 @@ test("pagination links preserve search and do not mix it with categories", () =>
   assert.equal(feedHref({ category: "Technology", query: "AI & chips", page: 3 }), "/?q=AI+%26+chips&page=3#stories");
   assert.equal(feedHref({ page: 1 }), "/#stories");
   assert.equal(feedHref({ category: "Climate" }), "/?category=climate#stories");
+  assert.equal(feedHref({ category: "Technology", country: "ph", page: 3 }), "/?category=technology&country=ph&page=3#stories");
+  assert.equal(feedHref({ query: "renewables", country: "gb", page: 2 }), "/?q=renewables&country=gb&page=2#stories");
 });

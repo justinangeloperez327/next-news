@@ -1,4 +1,7 @@
 import { MAX_FEED_PAGE } from "./feed-navigation.ts";
+import { admitProviderRequest, type BudgetDecision } from "./request-budget.ts";
+import { logNewsEvent, type NewsEvent } from "./news-telemetry.ts";
+import { parseNewsCountry, type NewsCountry } from "./regions.ts";
 import type { Category } from "./news.ts";
 
 export const FEED_REVALIDATE_SECONDS = 600;
@@ -18,7 +21,7 @@ export interface LiveArticle {
 
 export type LiveFeedResult =
   | { status: "demo" }
-  | { status: "unavailable"; reason: "authorization" | "rate-limit" | "upstream" | "invalid-data" | "network" }
+  | { status: "unavailable"; reason: "authorization" | "quota" | "throttled" | "limiter-unavailable" | "upstream" | "invalid-data" | "network" }
   | { status: "live"; articles: LiveArticle[]; page: number; hasNextPage: boolean };
 
 export type SourcePolicy = {
@@ -26,8 +29,14 @@ export type SourcePolicy = {
   blockedDomains?: readonly string[];
 };
 
-type Filters = { category?: Category; query?: string; page?: number };
-type Dependencies = { apiKey?: string; fetcher?: typeof fetch; sourcePolicy?: SourcePolicy };
+type Filters = { category?: Category; query?: string; page?: number; country?: NewsCountry };
+type Dependencies = {
+  apiKey?: string;
+  fetcher?: typeof fetch;
+  sourcePolicy?: SourcePolicy;
+  admit?: () => Promise<BudgetDecision>;
+  observe?: (event: NewsEvent) => void;
+};
 
 const CATEGORY_ENDPOINTS: Record<Category, { kind: "top"; category: string } | { kind: "search"; query: string }> = {
   World: { kind: "top", category: "world" },
@@ -148,6 +157,7 @@ export async function getLiveFeed(
     ? filters.page!
     : 1;
   const query = filters.query?.trim().slice(0, 100) ?? "";
+  const country = parseNewsCountry(filters.country);
   const category: LiveCategory = query ? "Top Stories" : filters.category ?? "Top Stories";
   const endpoint = filters.category && !query ? CATEGORY_ENDPOINTS[filters.category] : undefined;
   const useSearch = Boolean(query) || endpoint?.kind === "search";
@@ -156,11 +166,34 @@ export async function getLiveFeed(
   url.searchParams.set("lang", "en");
   url.searchParams.set("max", String(FEED_PAGE_SIZE));
   url.searchParams.set("page", String(page));
+  if (country) url.searchParams.set("country", country);
   if (useSearch) {
     url.searchParams.set("q", query || (endpoint?.kind === "search" ? endpoint.query : ""));
     url.searchParams.set("sortby", "publishedAt");
   } else {
     url.searchParams.set("category", endpoint?.kind === "top" ? endpoint.category : "general");
+  }
+
+  const started = Date.now();
+  const report = (result: NewsEvent["result"], articleCount?: number) =>
+    (dependencies.observe ?? logNewsEvent)({
+      event: "provider_fetch",
+      result,
+      elapsedMs: Math.max(0, Date.now() - started),
+      category,
+      country: country || "worldwide",
+      page,
+      ...(articleCount === undefined ? {} : { articleCount }),
+    });
+
+  // Shared, atomic provider-request budget when Upstash Redis is configured.
+  // Admission happens on cache misses through the server cache wrapper.
+  const admission = await (dependencies.admit ?? admitProviderRequest)();
+  if (admission !== "allowed" && admission !== "disabled") {
+    const reason = admission === "daily-limit" ? "quota" :
+      admission === "burst-limit" ? "throttled" : "limiter-unavailable";
+    report(reason);
+    return { status: "unavailable", reason };
   }
 
   try {
@@ -171,14 +204,16 @@ export async function getLiveFeed(
     });
 
     if (!response.ok) {
-      return {
-        status: "unavailable",
-        reason: [401, 403].includes(response.status) ? "authorization" : response.status === 429 ? "rate-limit" : "upstream",
-      };
+      const reason = response.status === 401 ? "authorization" :
+        response.status === 403 ? "quota" :
+        response.status === 429 ? "throttled" : "upstream";
+      report(reason);
+      return { status: "unavailable", reason };
     }
 
     const payload: unknown = await response.json();
     if (!isRecord(payload) || !Array.isArray(payload.articles)) {
+      report("invalid-data");
       return { status: "unavailable", reason: "invalid-data" };
     }
     const policy = dependencies.sourcePolicy ?? {
@@ -191,9 +226,11 @@ export async function getLiveFeed(
     const hasNextPage = validTotal && articles.length > 0
       && page < MAX_FEED_PAGE && page * FEED_PAGE_SIZE < Math.min(total, 1_000);
 
+    report("success", articles.length);
     return { status: "live", articles, page, hasNextPage };
   } catch {
-    // Timeouts, invalid JSON and network failures should not appear as live headlines.
+    // Network errors and malformed JSON never appear as live headlines or leak tokens.
+    report("network");
     return { status: "unavailable", reason: "network" };
   }
 }
