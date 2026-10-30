@@ -17,7 +17,7 @@ test("homepage search and demo navigation work", async ({ page }) => {
   await search.fill("science");
   await search.press("Enter");
   await expect(page.getByRole("heading", { name: /Results for “science”/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: "From scientific paper to public headline" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "From scientific paper to public headline", exact: true })).toBeVisible();
 });
 
 test("reading size persists across reloads without a server account", async ({ page }) => {
@@ -50,8 +50,8 @@ test("saved publisher articles are browser-only and removable", async ({ page })
     ]));
   }, article);
   await page.goto("/saved");
-  await expect(page.getByRole("heading", { name: "Saved articles" })).toBeVisible();
-  await expect(page.getByRole("link", { name: article.title })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Saved articles", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: article.title, exact: true })).toBeVisible();
   await page.getByRole("button", { name: /Saved ✓/ }).click();
   await expect(page.getByRole("heading", { name: "No saved articles yet" })).toBeVisible();
 });
@@ -69,7 +69,7 @@ test("For You discovers only previously cached articles matching chosen topics",
   }, { feedKey, record: article });
   await page.goto("/for-you");
   await expect(page.getByRole("heading", { name: "For You" })).toBeVisible();
-  await expect(page.getByRole("link", { name: article.title })).toBeVisible();
+  await expect(page.getByRole("link", { name: article.title, exact: true })).toBeVisible();
   // After switching to a different topic, no false "recommendations" appear.
   await page.getByRole("button", { name: /Technology/ }).click();
   await page.getByRole("button", { name: /Business/ }).click();
@@ -81,5 +81,5 @@ test("responsive navigation retains access to saved articles", async ({ page }) 
   await page.goto("/");
   await page.getByRole("navigation", { name: "News sections" }).getByRole("link", { name: "Saved" }).click();
   await expect(page).toHaveURL(/\/saved$/);
-  await expect(page.getByRole("heading", { name: "Saved articles" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Saved articles", exact: true })).toBeVisible();
 });
